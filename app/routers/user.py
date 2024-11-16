@@ -12,7 +12,7 @@ router = APIRouter(prefix='/user', tags=['user'])
 
 @router.get('/')
 async def all_users(db: Annotated[Session, Depends(get_db)]):
-    users = db.scalars(select(User)).all()
+    users = list(db.scalars(select(User)))
     return users
 
 
@@ -26,14 +26,25 @@ async def user_by_id(user_id: int, db: Annotated[Session, Depends(get_db)]):
 
 @router.post('/create')
 async def create_user(user_data: CreateUser, db: Annotated[Session, Depends(get_db)]):
+    existing_user = db.execute(
+        select(User).where(User.username == user_data.username)
+    ).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User with this username already exists."
+        )
+
     new_user = insert(User).values(
         username=user_data.username,
-        email=user_data.email,
-        password=user_data.password,
+        firstname=user_data.firstname,
+        lastname=user_data.lastname,
+        age=user_data.age,
         slug=slugify(user_data.username)
     )
     db.execute(new_user)
     db.commit()
+
     return {'status_code': status.HTTP_201_CREATED, 'transaction': 'Successful'}
 
 
